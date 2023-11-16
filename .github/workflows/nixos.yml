@@ -1,0 +1,37 @@
+# Reference: https://github.com/skatolo/gh-actions-nixos-tests
+name: NixOS
+
+on:
+  push:
+    paths-ignore:
+      - '**/*.md'
+    branches:
+      - main
+  pull_request:
+    paths-ignore:
+      - '**/*.md'
+
+jobs:
+  nixos-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-go@v4
+      with:
+        go-version: '>=1.21'
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    - uses: cachix/install-nix-action@v22
+      with:
+        extra_nix_config: "system-features = nixos-test benchmark big-parallel kvm"
+        github_access_token: ${{ secrets.GITHUB_TOKEN }}
+        nix_path: nixpkgs=channel:nixos-unstable
+    - uses: DeterminateSystems/magic-nix-cache-action@main
+    # This brings up two NixOS VMs - one for Docker and one for Podman - and ensures that
+    # the compose2nix generated config works when loaded into NixOS.
+    - name: NixOS test
+      run: |
+        sudo chmod o+rw /dev/kvm
+        ./nixos-test/update.sh
+        nix build -L .#checks.x86_64-linux.integrationTest --option sandbox false

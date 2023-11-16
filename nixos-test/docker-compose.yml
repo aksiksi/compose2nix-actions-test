@@ -1,0 +1,59 @@
+version: "3.7"
+name: "myproject"
+services:
+  sabnzbd:
+    image: lscr.io/linuxserver/sabnzbd
+    environment:
+      TZ: ${TIMEZONE}
+    volumes:
+      - /var/volumes/sabnzbd:/config
+      - storage:/storage
+    labels:
+      - "compose2nix.systemd.service.RuntimeMaxSec=120"
+      - "compose2nix.systemd.unit.Description=This is the sabnzbd container!"
+    restart: unless-stopped
+  jellyseerr:
+    image: docker.io/fallenbagel/jellyseerr:latest
+    container_name: jellyseerr
+    environment:
+      TZ: ${TIMEZONE}
+    dns:
+      - 1.1.1.1
+    volumes:
+      - /var/volumes/jellyseerr:/app/config
+      - books:/books
+    # Error: network-scoped aliases are only supported for user-defined networks
+    # Need to enforce this on the Compose side.
+    #network_mode: "service:sabnzbd"
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 120s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: 10m
+        max-file: "3"
+        compress: "true"
+    restart: unless-stopped
+
+networks:
+  something:
+    labels:
+      - "test-label=okay"
+
+volumes:
+  storage:
+    name: storage
+    driver_opts:
+      type: none
+      device: /mnt/media
+      o: bind
+  books:
+    name: books
+    driver_opts:
+      type: none
+      device: /mnt/media/Books
+      o: bind
